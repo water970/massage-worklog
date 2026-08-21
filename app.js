@@ -426,6 +426,57 @@
   filterAll.addEventListener("click", function () { setFilter("all"); });
   filterMonth.addEventListener("click", function () { setFilter("month"); });
 
+  // 登录成功后从云端 public.work_log 读取当前用户自己的记录（仅读，不写）
+  function loadCloudRecords() {
+    if (!sbClient) return;
+    sbClient.auth.getSession().then(function (sres) {
+      var session = sres.data && sres.data.session;
+      var uid = session && session.user ? session.user.id : null;
+      if (!uid) {
+        // 无有效用户：不动本地数据，仅提示
+        msgEl.textContent = "未能获取登录用户，云端记录未加载。";
+        return;
+      }
+      sbClient
+        .from("work_log")
+        .select("log_date, guests, income, hours, items, note, saved_at")
+        .eq("owner", uid)
+        .then(function (res) {
+          if (res.error) {
+            // 读取失败：不清空本地数据，明确提示
+            msgEl.textContent = "云端记录读取失败：" + res.error.message + "（本地数据保留）";
+            return;
+          }
+          var rows = res.data || [];
+          if (!rows.length) {
+            // 云端无记录：不报错，保留现有空白/本地状态
+            return;
+          }
+          // 转换成现有 workbuddy_records 结构并合并进本地缓存（云端优先）
+          var map = getAllRecords();
+          rows.forEach(function (r) {
+            map[r.log_date] = {
+              date: r.log_date,
+              guests: r.guests != null ? r.guests : 0,
+              items: Array.isArray(r.items) ? r.items : [],
+              income: r.income != null ? r.income : 0,
+              hours: r.hours != null ? r.hours : 0,
+              note: r.note || "",
+              savedAt: r.saved_at || null
+            };
+          });
+          saveAllRecords(map);
+          // 刷新三个视图
+          loadSummary();
+          renderHistory();
+          renderMonth();
+        })
+        .catch(function (err) {
+          msgEl.textContent = "云端记录读取失败：" + (err && err.message ? err.message : "网络错误") + "（本地数据保留）";
+        });
+    });
+  }
+
   // 初始化（仅登录成功后调用）
   function startApp() {
     dateEl.value = todayStr();
@@ -435,6 +486,8 @@
     loadSummary();
     renderHistory();
     renderMonth();
+    // 云端同步暂未启用：不自动调用 loadCloudRecords()，避免把空/脏云端数据写入本地缓存。
+    // loadCloudRecords() 函数保留，待后续按需手动触发。
   }
 
   // ---- 登录态切换 ----
