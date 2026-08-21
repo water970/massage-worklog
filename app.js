@@ -31,7 +31,9 @@
   // ---- Supabase 登录（仅用 publishable / anon key；不接触 service_role）----
   var SUPABASE_URL = document.querySelector('meta[name="supabase-url"]').getAttribute("content");
   var SUPABASE_ANON_KEY = document.querySelector('meta[name="supabase-anon-key"]').getAttribute("content");
-  var sbClient = (typeof supabase !== "undefined" && SUPABASE_ANON_KEY && SUPABASE_ANON_KEY !== "YOUR_ANON_KEY_HERE")
+  var sbSdkMissing = (typeof supabase === "undefined"); // Supabase SDK 未能加载（CDN 失败等）
+  var sbConfigMissing = !SUPABASE_ANON_KEY || SUPABASE_ANON_KEY === "YOUR_ANON_KEY_HERE"; // Publishable key 未配置
+  var sbClient = (!sbSdkMissing && !sbConfigMissing)
     ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
     : null;
 
@@ -484,13 +486,19 @@
   }
 
   function initAuth() {
-    if (!sbClient) {
-      // 未配置 Supabase：仍允许进入（保持本地 localStorage 可用），并提示
-      userEmailEl.textContent = "（Supabase 未配置）";
-      showApp({ email: "" });
-      startApp();
+    // 1) Supabase SDK 加载失败：禁止进入，仅显示登录界面并提示
+    if (sbSdkMissing) {
+      loginMsg.textContent = "登录组件加载失败，请检查网络后刷新。";
+      showLogin();
       return;
     }
+    // 2) Publishable key 未配置：禁止进入，仅显示登录界面并提示
+    if (sbConfigMissing) {
+      loginMsg.textContent = "Supabase 尚未配置，请检查登录配置。";
+      showLogin();
+      return;
+    }
+    // 3) 以下分支：SDK 正常且配置正确，是否进入取决于是否存在有效 session
     loginForm.addEventListener("submit", handleLogin);
     logoutBtn.addEventListener("click", handleLogout);
 
