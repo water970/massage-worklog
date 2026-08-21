@@ -384,3 +384,60 @@ textarea {
   color: #fff;
   font-weight: 700;
 }
+
+/* 登录前隐藏主应用 */
+.hidden { display: none !important; }
+
+/* 登录界面 */
+.login-screen {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: var(--bg);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 360px;
+  background: var(--card);
+  border-radius: 16px;
+  padding: 28px 22px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+}
+
+.login-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--accent-dark);
+  text-align: center;
+}
+
+.login-sub {
+  margin: 6px 0 20px;
+  font-size: 14px;
+  color: var(--muted);
+  text-align: center;
+}
+
+#loginForm .field { margin-bottom: 16px; }
+
+/* 顶栏用户条：邮箱 + 退出 */
+.user-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.user-email {
+  font-size: 13px;
+  opacity: 0.92;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 60vw;
+}

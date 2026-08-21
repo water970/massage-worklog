@@ -5,12 +5,42 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>今日记录 · 工作账本</title>
   <link rel="stylesheet" href="styles.css" />
+  <!-- Supabase 配置（publishable / anon key，仅前端使用；请勿替换为 service_role key） -->
+  <meta name="supabase-url" content="https://lofnyknqksqvyqvzbbad.supabase.co" />
+  <meta name="supabase-anon-key" content="sb_publishable_AFXLFfR1aYjJUeZlWo-Raw_yHVq5Rmx" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+  <!-- 登录界面：未登录时显示 -->
+  <div id="loginScreen" class="login-screen">
+    <div class="login-card">
+      <h1 class="login-title">工作账本</h1>
+      <p class="login-sub">登录后使用今日记录</p>
+      <form id="loginForm" autocomplete="off">
+        <label class="field">
+          <span class="field-label">邮箱</span>
+          <input type="email" id="loginEmail" required placeholder="you@example.com" />
+        </label>
+        <label class="field">
+          <span class="field-label">密码</span>
+          <input type="password" id="loginPassword" required placeholder="请输入密码" />
+        </label>
+        <button type="submit" class="btn-save">登录</button>
+        <p id="loginMsg" class="msg" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- 主应用：登录后显示 -->
+  <div id="app" class="hidden">
   <header class="topbar">
     <div class="topbar-head">
       <h1>今日工作仪表盘</h1>
       <span class="today-date" id="todayDate"></span>
+    </div>
+    <div class="user-bar">
+      <span class="user-email" id="userEmail"></span>
+      <button type="button" id="logoutBtn" class="btn-mini">退出</button>
     </div>
     <div class="summary">
       <div class="summary-item">
@@ -103,6 +133,7 @@
       <p id="historyEmpty" class="empty-tip">还没有历史记录，保存今日记录后会出现在这里。</p>
     </section>
   </main>
+  </div>
 
   <script src="app.js"></script>
 </body>

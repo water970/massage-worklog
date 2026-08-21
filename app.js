@@ -28,6 +28,22 @@
   var monthHours = $("monthHours");
   var formStatus = $("formStatus");
 
+  // ---- Supabase 登录（仅用 publishable / anon key；不接触 service_role）----
+  var SUPABASE_URL = document.querySelector('meta[name="supabase-url"]').getAttribute("content");
+  var SUPABASE_ANON_KEY = document.querySelector('meta[name="supabase-anon-key"]').getAttribute("content");
+  var sbClient = (typeof supabase !== "undefined" && SUPABASE_ANON_KEY && SUPABASE_ANON_KEY !== "YOUR_ANON_KEY_HERE")
+    ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    : null;
+
+  var loginScreen = $("loginScreen");
+  var loginForm = $("loginForm");
+  var loginEmail = $("loginEmail");
+  var loginPassword = $("loginPassword");
+  var loginMsg = $("loginMsg");
+  var appEl = $("app");
+  var userEmailEl = $("userEmail");
+  var logoutBtn = $("logoutBtn");
+
   function todayStr() {
     var d = new Date();
     var m = String(d.getMonth() + 1).padStart(2, "0");
@@ -408,12 +424,103 @@
   filterAll.addEventListener("click", function () { setFilter("all"); });
   filterMonth.addEventListener("click", function () { setFilter("month"); });
 
-  // 初始化
-  dateEl.value = todayStr();
-  todayDateEl.textContent = todayLabel();
-  loadSaved();
-  ensureOneRow();
-  loadSummary();
-  renderHistory();
-  renderMonth();
+  // 初始化（仅登录成功后调用）
+  function startApp() {
+    dateEl.value = todayStr();
+    todayDateEl.textContent = todayLabel();
+    loadSaved();
+    ensureOneRow();
+    loadSummary();
+    renderHistory();
+    renderMonth();
+  }
+
+  // ---- 登录态切换 ----
+  function showApp(user) {
+    loginScreen.classList.add("hidden");
+    appEl.classList.remove("hidden");
+    if (user && user.email) userEmailEl.textContent = user.email;
+  }
+
+  function showLogin() {
+    appEl.classList.add("hidden");
+    loginScreen.classList.remove("hidden");
+    loginMsg.textContent = "";
+    loginPassword.value = "";
+  }
+
+  function handleLogin(e) {
+    e.preventDefault();
+    if (!sbClient) {
+      loginMsg.textContent = "Supabase 尚未配置（请检查 anon key）。";
+      return;
+    }
+    var email = loginEmail.value.trim();
+    var password = loginPassword.value;
+    if (!email || !password) {
+      loginMsg.textContent = "请输入邮箱和密码。";
+      return;
+    }
+    loginMsg.textContent = "登录中…";
+    sbClient.auth.signInWithPassword({ email: email, password: password })
+      .then(function (res) {
+        if (res.error) {
+          loginMsg.textContent = "登录失败：" + res.error.message;
+          return;
+        }
+        showApp(res.data.user);
+      })
+      .catch(function (err) {
+        loginMsg.textContent = "登录失败：" + (err && err.message ? err.message : "网络错误");
+      });
+  }
+
+  function handleLogout() {
+    if (sbClient) {
+      sbClient.auth.signOut().then(function () { showLogin(); });
+    } else {
+      showLogin();
+    }
+  }
+
+  function initAuth() {
+    if (!sbClient) {
+      // 未配置 Supabase：仍允许进入（保持本地 localStorage 可用），并提示
+      userEmailEl.textContent = "（Supabase 未配置）";
+      showApp({ email: "" });
+      startApp();
+      return;
+    }
+    loginForm.addEventListener("submit", handleLogin);
+    logoutBtn.addEventListener("click", handleLogout);
+
+    var started = false;
+    function maybeStart(session) {
+      if (session && session.user && !started) { started = true; startApp(); }
+    }
+
+    // 刷新后保持登录状态：读取已有会话；登录成功后也会进入这里
+    sbClient.auth.getSession().then(function (res) {
+      var session = res.data && res.data.session;
+      if (session && session.user) {
+        showApp(session.user);
+        maybeStart(session);
+      } else {
+        showLogin();
+      }
+    });
+
+    // 会话变化（登录成功 / 其他地方登出）同步界面
+    sbClient.auth.onAuthStateChange(function (event, session) {
+      if (session && session.user) {
+        showApp(session.user);
+        maybeStart(session);
+      } else {
+        showLogin();
+      }
+    });
+  }
+
+  // 进入点：先过登录态，再启动应用
+  initAuth();
 })();
