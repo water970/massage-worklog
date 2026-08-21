@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>今日记录 · 工作账本</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-head">
+      <h1>今日工作仪表盘</h1>
+      <span class="today-date" id="todayDate"></span>
+    </div>
+    <div class="summary">
+      <div class="summary-item">
+        <span class="summary-label">今日接待</span>
+        <span class="summary-value" id="sumGuests">0<span class="unit">人</span></span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-label">今日收入</span>
+        <span class="summary-value" id="sumIncome">¥0</span>
+      </div>
+      <div class="summary-item">
+        <span class="summary-label">工作时长</span>
+        <span class="summary-value" id="sumHours">0<span class="unit">小时</span></span>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="form-card">
+      <div class="card-head">
+        <h2 class="card-title">今日记录</h2>
+        <span id="formStatus" class="form-status">新建记录</span>
+      </div>
+      <form id="recordForm" autocomplete="off">
+      <label class="field">
+        <span class="field-label">日期</span>
+        <input type="date" id="date" name="date" required />
+      </label>
+
+      <label class="field">
+        <span class="field-label">接待人数</span>
+        <input type="number" id="guests" name="guests" min="0" step="1" inputmode="numeric" placeholder="（选填）" />
+      </label>
+
+      <section class="block">
+        <div class="block-head">
+          <span class="field-label">项目</span>
+          <button type="button" id="addItem" class="btn-mini">+ 添加项目</button>
+        </div>
+        <div id="items"></div>
+      </section>
+
+      <label class="field">
+        <span class="field-label">今日收入（元）</span>
+        <input type="number" id="income" name="income" min="0" step="0.01" inputmode="decimal" placeholder="（选填）" />
+      </label>
+
+      <label class="field">
+        <span class="field-label">工作时长（小时）</span>
+        <input type="number" id="hours" name="hours" min="0" step="0.5" inputmode="decimal" placeholder="（选填）" />
+      </label>
+
+      <label class="field">
+        <span class="field-label">备注</span>
+        <textarea id="note" name="note" rows="3" placeholder="今天的情况、小心事……"></textarea>
+      </label>
+
+      <button type="submit" class="btn-save">保存今日记录</button>
+      <p id="msg" class="msg" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+
+    <section class="month-card">
+      <h2 class="card-title">本月统计</h2>
+      <div class="summary month-summary">
+        <div class="summary-item">
+          <span class="summary-label">本月接待</span>
+          <span class="summary-value" id="monthGuests">0<span class="unit">人</span></span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">本月收入</span>
+          <span class="summary-value" id="monthIncome">¥0</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">本月工时</span>
+          <span class="summary-value" id="monthHours">0<span class="unit">小时</span></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="history-card">
+      <div class="card-head">
+        <h2 class="card-title">历史记录</h2>
+        <div class="filter-toggle" role="group" aria-label="历史记录筛选">
+          <button type="button" class="filter-btn is-active" id="filterAll">全部</button>
+          <button type="button" class="filter-btn" id="filterMonth">本月</button>
+        </div>
+      </div>
+      <div id="historyList"></div>
+      <p id="historyEmpty" class="empty-tip">还没有历史记录，保存今日记录后会出现在这里。</p>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
