@@ -221,6 +221,21 @@
     renderMonth();
     setFormStatus(record.date);
     msgEl.textContent = "今日记录已保存";
+    // 登录态：立即用新值更新内存云端缓存，页面统计即时反映编辑结果
+    if (loggedIn) {
+      cloudRecords[record.date] = {
+        date: record.date,
+        guests: record.guests,
+        items: record.items,
+        income: record.income,
+        hours: record.hours,
+        note: record.note,
+        savedAt: record.savedAt
+      };
+      loadSummary();
+      renderHistory();
+      renderMonth();
+    }
     // 本地保存完成后，将这一条 upsert 到云端（失败不撤销本地）
     syncRecordToCloud(record);
   }
