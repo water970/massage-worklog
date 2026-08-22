@@ -157,6 +157,44 @@
     }
   }
 
+  // 将刚刚保存到本地的一条记录 upsert 到 Supabase public.work_log（仅上传这一条）。
+  // 前置：sbClient 已就绪、存在有效登录 session。失败不撤销本地保存。
+  function syncRecordToCloud(record) {
+    if (!sbClient) return; // 未配置/未登录：跳过云端，本地已保存
+    sbClient.auth.getSession().then(function (sres) {
+      var session = sres.data && sres.data.session;
+      var uid = session && session.user ? session.user.id : null;
+      if (!uid) {
+        // 无有效登录用户：本地已保存，仅提示云端未同步
+        msgEl.textContent = "本地已保存，但云端同步失败（未获取到登录用户）";
+        return;
+      }
+      var payload = {
+        log_date: record.date,
+        guests: record.guests,
+        income: record.income,
+        hours: record.hours,
+        items: Array.isArray(record.items) ? record.items : [],
+        note: record.note || "",
+        saved_at: record.savedAt || null,
+        owner: uid
+      };
+      sbClient
+        .from("work_log")
+        .upsert(payload, { onConflict: "log_date" })
+        .then(function (res) {
+          if (res.error) {
+            msgEl.textContent = "本地已保存，但云端同步失败（" + res.error.message + "）";
+            return;
+          }
+          msgEl.textContent = "已保存并同步";
+        })
+        .catch(function (err) {
+          msgEl.textContent = "本地已保存，但云端同步失败（" + (err && err.message ? err.message : "网络错误") + "）";
+        });
+    });
+  }
+
   function save() {
     var record = {
       date: dateEl.value,
@@ -175,6 +213,8 @@
     renderMonth();
     setFormStatus(record.date);
     msgEl.textContent = "今日记录已保存";
+    // 本地保存完成后，将这一条 upsert 到云端（失败不撤销本地）
+    syncRecordToCloud(record);
   }
 
   // 根据当前表单日期更新「新建 / 编辑」状态提示
