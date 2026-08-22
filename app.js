@@ -475,12 +475,20 @@
         .delete()
         .eq("log_date", date)
         .eq("owner", uid)
+        .select("log_date")
         .then(function (res) {
           if (res.error) {
             msgEl.textContent = "本地已删除，但云端删除失败（" + res.error.message + "）";
             return;
           }
-          msgEl.textContent = "已删除并同步";
+          var deleted = res.data || [];
+          if (deleted.length === 1) {
+            // 真正删除成功：返回了被删除的那一行
+            msgEl.textContent = "已删除并同步";
+          } else {
+            // 云端没有匹配到任何记录（owner 不符或已被删），未实际删除
+            msgEl.textContent = "本地已删除，但云端没有找到对应记录";
+          }
         })
         .catch(function (err) {
           msgEl.textContent = "本地已删除，但云端删除失败（" + (err && err.message ? err.message : "网络错误") + "）";
