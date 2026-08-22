@@ -23,6 +23,20 @@
   var filterAll = $("filterAll");
   var filterMonth = $("filterMonth");
   var currentFilter = "all"; // "all" | "month"
+
+  // 登录态 + 云端记录（仅内存，不写 localStorage）
+  var loggedIn = false;                       // 是否已登录（决定是否读 cloudRecords）
+  var cloudRecords = {};                      // { "YYYY-MM-DD": {date,guests,income,hours,items,note,savedAt} }
+
+  // 统一取当前数据源：登录态用云端，否则用本地 localStorage
+  function getSourceMap() {
+    return loggedIn ? cloudRecords : getAllRecords();
+  }
+  function getRecordByDate(date) {
+    var map = getSourceMap();
+    return map[date] || null;
+  }
+
   var monthGuests = $("monthGuests");
   var monthIncome = $("monthIncome");
   var monthHours = $("monthHours");
@@ -80,12 +94,6 @@
 
   function saveAllRecords(map) {
     localStorage.setItem(RECORDS_KEY, JSON.stringify(map));
-  }
-
-  // 取某日期记录（用于顶部今日统计）
-  function getRecordByDate(date) {
-    var map = getAllRecords();
-    return map[date] || null;
   }
 
   function addItemRow(name, qty) {
@@ -253,7 +261,7 @@
 
   // 本月统计：始终按系统当前自然月累加，不随表单正在查看的日期变化
   function renderMonth() {
-    var map = getAllRecords();
+    var map = getSourceMap();
     var ym = todayStr().slice(0, 7);   // 当前自然月 "YYYY-MM"
     var g = 0, inc = 0, h = 0;
     Object.keys(map).forEach(function (d) {
@@ -287,7 +295,7 @@
   }
 
   function renderHistory() {
-    var map = getAllRecords();
+    var map = getSourceMap();
     var dates = Object.keys(map)
       .filter(function (d) { return currentFilter === "month" ? isThisMonth(d) : true; })
       .sort(function (a, b) { return a < b ? 1 : -1; }); // 新到旧
@@ -466,14 +474,15 @@
   filterAll.addEventListener("click", function () { setFilter("all"); });
   filterMonth.addEventListener("click", function () { setFilter("month"); });
 
-  // 登录成功后从云端 public.work_log 读取当前用户自己的记录（仅读，不写）
+  // 登录成功后从云端 public.work_log 读取当前用户自己的记录（仅读，不写本地）
+  // 结果仅放入内存 cloudRecords，不调用 saveAllRecords、不修改 localStorage、不覆盖本地。
   function loadCloudRecords() {
     if (!sbClient) return;
     sbClient.auth.getSession().then(function (sres) {
       var session = sres.data && sres.data.session;
       var uid = session && session.user ? session.user.id : null;
       if (!uid) {
-        // 无有效用户：不动本地数据，仅提示
+        // 无有效用户：不查询，不覆盖本地，仅提示
         msgEl.textContent = "未能获取登录用户，云端记录未加载。";
         return;
       }
@@ -483,17 +492,12 @@
         .eq("owner", uid)
         .then(function (res) {
           if (res.error) {
-            // 读取失败：不清空本地数据，明确提示
-            msgEl.textContent = "云端记录读取失败：" + res.error.message + "（本地数据保留）";
+            // 读取失败：不覆盖本地数据，保持页面可用，明确提示
+            msgEl.textContent = "云端记录读取失败：" + res.error.message;
             return;
           }
           var rows = res.data || [];
-          if (!rows.length) {
-            // 云端无记录：不报错，保留现有空白/本地状态
-            return;
-          }
-          // 转换成现有 workbuddy_records 结构并合并进本地缓存（云端优先）
-          var map = getAllRecords();
+          var map = {};
           rows.forEach(function (r) {
             map[r.log_date] = {
               date: r.log_date,
@@ -505,20 +509,28 @@
               savedAt: r.saved_at || null
             };
           });
-          saveAllRecords(map);
-          // 刷新三个视图
+          // 仅写入内存云端缓存，不碰 localStorage
+          cloudRecords = map;
+          // 刷新三个视图（登录态下以 cloudRecords 为准）
           loadSummary();
           renderHistory();
           renderMonth();
+          if (!rows.length) {
+            // 云端无记录：不报错，正常显示空白账本
+            msgEl.textContent = "云端暂无记录，保存后将自动同步。";
+          } else {
+            msgEl.textContent = "云端记录已加载（共 " + rows.length + " 条）";
+          }
         })
         .catch(function (err) {
-          msgEl.textContent = "云端记录读取失败：" + (err && err.message ? err.message : "网络错误") + "（本地数据保留）";
+          msgEl.textContent = "云端记录读取失败：" + (err && err.message ? err.message : "网络错误");
         });
     });
   }
 
   // 初始化（仅登录成功后调用）
   function startApp() {
+    loggedIn = true;            // 进入即视为登录态：后续视图以 cloudRecords 为准
     dateEl.value = todayStr();
     todayDateEl.textContent = todayLabel();
     loadSaved();
@@ -526,18 +538,22 @@
     loadSummary();
     renderHistory();
     renderMonth();
-    // 云端同步暂未启用：不自动调用 loadCloudRecords()，避免把空/脏云端数据写入本地缓存。
-    // loadCloudRecords() 函数保留，待后续按需手动触发。
+    // 登录后自动从云端读取（仅写入内存 cloudRecords，不覆盖本地）
+    loadCloudRecords();
   }
 
   // ---- 登录态切换 ----
   function showApp(user) {
+    loggedIn = true;            // 标记为登录态：视图切到 cloudRecords
+    cloudRecords = {};          // 清空旧云端缓存，等待本次重新加载
     loginScreen.classList.add("hidden");
     appEl.classList.remove("hidden");
     if (user && user.email) userEmailEl.textContent = user.email;
   }
 
   function showLogin() {
+    loggedIn = false;           // 退出登录态：视图回到本地 localStorage
+    cloudRecords = {};          // 清空云端缓存
     appEl.classList.add("hidden");
     loginScreen.classList.remove("hidden");
     loginMsg.textContent = "";
