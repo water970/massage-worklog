@@ -431,17 +431,46 @@
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  // 删除：移除并刷新历史、今日统计、本月统计（确认已由内联按钮完成）
+  // 删除：移除本地 + 刷新视图；登录态下同步从云端 work_log 删除（限定 owner）
   function deleteRecord(date) {
     var map = getAllRecords();
     delete map[date];
     saveAllRecords(map);
+    // 登录态：同时从内存云端缓存移除，确保页面不再显示该记录
+    if (loggedIn && cloudRecords[date]) delete cloudRecords[date];
     renderHistory();
     loadSummary();
     renderMonth();
     // 若当前表单正在编辑的就是被删记录 -> 切回新建并清空
     if (dateEl.value === date) clearForm();
     msgEl.textContent = "已删除 " + date + " 的记录";
+
+    // 未登录：只做本地删除，不请求 Supabase
+    if (!sbClient || !loggedIn) return;
+    sbClient.auth.getSession().then(function (sres) {
+      var session = sres.data && sres.data.session;
+      var uid = session && session.user ? session.user.id : null;
+      if (!uid) {
+        // 无有效登录用户：本地已删，仅提示
+        msgEl.textContent = "本地已删除，但云端删除失败（未获取到登录用户）";
+        return;
+      }
+      sbClient
+        .from("work_log")
+        .delete()
+        .eq("log_date", date)
+        .eq("owner", uid)
+        .then(function (res) {
+          if (res.error) {
+            msgEl.textContent = "本地已删除，但云端删除失败（" + res.error.message + "）";
+            return;
+          }
+          msgEl.textContent = "已删除并同步";
+        })
+        .catch(function (err) {
+          msgEl.textContent = "本地已删除，但云端删除失败（" + (err && err.message ? err.message : "网络错误") + "）";
+        });
+    });
   }
 
   $("addItem").addEventListener("click", function () { addItemRow(); });
